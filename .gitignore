@@ -1,0 +1,6 @@
+main
+*.o
+hidapi/
+WiiKey.app/
+map_gen.c
+.DS_Store
