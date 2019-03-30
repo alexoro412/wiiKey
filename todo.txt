@@ -1,0 +1,5 @@
+Switch to non-blocking, add a sleep so the loop doesn't run too fast
+
+Read memory (eeprom)
+Add memory to the wiimote struct. 
+Keep track of if memory is being read from.

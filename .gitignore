@@ -1,4 +1,5 @@
 main
+data.bin
 *.o
 hidapi/
 WiiKey.app/

@@ -46,15 +46,14 @@ int main(void){
     
       unsigned char buffer[BUFFER_LENGTH];
 
+      int bytes_read = wiimote_read(w, buffer, BUFFER_LENGTH);
+      
       w->rumble = false;
       wiimote_set_leds(w, LED_1 | LED_2);
-      wiimote_set_reporting_mode(w, 0x31, false);
-
-      int bytes_read = wiimote_read(w, buffer, BUFFER_LENGTH);
      
       wiimote_core_buttons button_buffer;
 
-      wiimote_get_status_report(w);
+      wiimote_request_status_report(w);
 
       while(bytes_read > 0){
         if(buffer[0] != 0x3d){
@@ -73,13 +72,24 @@ int main(void){
           KEYBIND(A, 'q');
           KEYBIND(plus, 'r');
           KEYBIND(minus, 'e');
-         
+   
           if(button_buffer.B != w->buttons.B){
             keyboard_key_set(kVK_Space, button_buffer.B);
           }
 
+          if(button_buffer.one && !w->buttons.one){
+            wiimote_request_memory(w, 0, 0x1700, false);
+          }
+
+          if(button_buffer.two && !w->buttons.two){
+            printf("Writing memory to data.bin\n");
+            FILE* f = fopen("data.bin", "w");
+            fwrite(w->memory, sizeof(unsigned char), 0x1700, f);
+            fclose(f);
+          }
+
           if(button_buffer.home && !w->buttons.home){
-            wiimote_get_status_report(w);
+            wiimote_request_status_report(w);
             if(w->reporting_mode == 0x31){
               wiimote_set_reporting_mode(w, 0x30, false);
             } else if(w->reporting_mode == 0x30){
@@ -95,6 +105,8 @@ int main(void){
         
         short acc_x, acc_y, acc_z;
         acc_x = acc_y = acc_z = 0;
+
+        unsigned char memory_size;
 
         switch(buffer[0]){
           case 0x20: // CB + status report
@@ -112,6 +124,22 @@ int main(void){
             // and update it as data comes in
             // Just need to figure out how to differentiate
             // between the different kinds of reads (memory/register/extension)
+            printf("Reading memory at address 0x%02x%02x\n", buffer[4], buffer[5]);
+            memory_size = (buffer[3] >> 4) + 1;
+            for(int i = 0; i < memory_size; i++){
+              w->memory[w->memory_address] = buffer[6+i];
+              w->memory_address++;
+            }
+            if(w->memory_address >= w->memory_end_address){
+              w->reading_memory = false;
+              printf("Done reading memory\n");
+            }
+            /*printf("Got %d bytes starting with offset 0x%02x%02x\n", 
+               memory_size, buffer[5], buffer[4]);
+            for(int i = 0; i < memory_size; i++){
+              printf("%02x ", buffer[6 + i]);
+            }
+            printf("\n");*/
             break;
           case 0x22: // acknowledge output report, maybe report error...
             if(buffer[4]){
@@ -152,18 +180,12 @@ int main(void){
             break;
         }
 
-        
-
         bytes_read = wiimote_read(w, buffer, BUFFER_LENGTH);
       }
     }
 
     hid_close(w->handle);
-    free(w);
-/*    while(cur_dev) {
-      printf("(%d) %ls\n", i, cur_dev->serial_number);  
-      cur_dev = cur_dev->next;
-    }*/
+    wiimote_free(w);
   }
   
   hid_free_enumeration(devs);

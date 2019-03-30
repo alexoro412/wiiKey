@@ -8,6 +8,11 @@ wiimote* wiimote_new(const wchar_t* serial){
   ret->buttons.buttons = 0;
   ret->rumble = false;
   ret->handle = hid_open(wiimote_vendor_id, wiimote_product_id, serial);
+  ret->reporting_mode = 0x30;
+
+  ret->reading_memory = false;
+  ret->memory_address = 0;
+  ret->memory = calloc(0x1700, sizeof(unsigned char));
 
   if(ret->handle == NULL){
     // couldn't open HID device
@@ -16,6 +21,11 @@ wiimote* wiimote_new(const wchar_t* serial){
   }
 
   return ret;
+}
+
+void wiimote_free(wiimote* w){
+  free(w->memory);
+  free(w);
 }
 
 int wiimote_read(wiimote* w, unsigned char* buffer, int len){
@@ -48,9 +58,35 @@ int wiimote_set_reporting_mode(wiimote* w, unsigned char reporting_mode, bool co
   return wiimote_write(w, buffer, 3);
 }
 
-int wiimote_get_status_report(wiimote* w){
+int wiimote_request_status_report(wiimote* w){
   unsigned char buffer[2];
   buffer[0] = 0x15;
   buffer[1] = 0x00;
   return wiimote_write(w, buffer, 2);
+}
+
+// currently limited to eeprom
+int wiimote_request_memory(wiimote* w, unsigned short address, unsigned short size, bool read_from_register){
+
+  if(w->reading_memory){
+    // TODO maybe queue memory reads?
+    return -1;
+  }
+
+  w->memory_address = address;
+  w->memory_end_address = address + size - 1;
+  printf("%d to %d\n", w->memory_address, w->memory_end_address);
+  w->reading_memory = true;
+
+  unsigned char buffer[7];
+  buffer[0] = 0x17;
+  buffer[1] = read_from_register << 2;
+  // the address is stored as three bytes in big endian order
+  buffer[2] = 0; //(address >> 16) & 255;
+  buffer[3] = (address >> 8) & 255;
+  buffer[4] = (address) & 255;
+  // the size is also in big endian order
+  buffer[5] = (size >> 8) & 255;
+  buffer[6] = (size) & 255;
+  return wiimote_write(w, buffer, 7);
 }

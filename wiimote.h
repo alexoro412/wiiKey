@@ -6,31 +6,22 @@
 #include <stdbool.h>
 #include <string.h>
 
+// TODO is this better than using a macro?
 extern unsigned short wiimote_vendor_id;
 extern unsigned short wiimote_product_id;
-/*
-unsigned short wiimote_vendor_id = 0x057e;
-unsigned short wiimote_product_id = 0x0306;
-*/
-typedef enum {
-  wiimote_left = 1 << 8,
-  wiimote_right = 1 << 9,
-  wiimote_down = 1 << 10,
-  wiimote_up = 1 << 11,
-  wiimote_plus = 1 << 12,
-  wiimote_2 = 1,
-  wiimote_1 = 1 << 1,
-  wiimote_B = 1 << 1,
-  wiimote_A = 2 
-} wiimote_button;
 
 typedef struct {
   union {
+    // The core buttons data as a single short
     unsigned short buttons;
+
+    // The two bytes that represent the core buttons data
     struct {
       unsigned char buttons_first;
       unsigned char buttons_second;
     };
+
+    // The individual buttons
     struct {
       bool left : 1;
       bool right : 1;
@@ -49,14 +40,23 @@ typedef struct {
   };
 } wiimote_core_buttons;
 
-
+// TODO what else should be stored in this struct?
+// potential candidates:
+// - led state
+// - serial number / name
 typedef struct {
   wiimote_core_buttons buttons;
   bool rumble;
   hid_device* handle;
   unsigned char reporting_mode;
+
+  bool reading_memory;
+  unsigned short memory_address;
+  unsigned short memory_end_address;
+  unsigned char* memory;
 } wiimote;
 
+// Corresponds to the 0x20 report
 typedef struct {
   union{
     struct{
@@ -71,9 +71,12 @@ typedef struct {
     };
     unsigned char lf_byte; 
   };
+  unsigned char battery_level;
 } wiimote_status_report;
 
 wiimote* wiimote_new(const wchar_t* serial);
+
+void wiimote_free(wiimote* w);
 
 int wiimote_read(wiimote* w, unsigned char* buffer, int len);
 
@@ -93,19 +96,8 @@ void wiimote_parse_core_buttons(wiimote_core_buttons* buttons, unsigned char* bu
 
 int wiimote_set_reporting_mode(wiimote* w, unsigned char reporting_mode, bool continuous);
 
+int wiimote_request_status_report(wiimote* w);
 
-int wiimote_get_status_report(wiimote* w);
-/*
-struct wiimote_info {
-  wchar_t* serial_number;
-  struct wiimote_info* next;
-};
-
-typedef struct wiimote_info wiimote_info;
-
-wiimote_info* enumerate_remotes();
-
-void wiimote_free_enumeration(wiimote_info* list);
-*/
+int wiimote_request_memory(wiimote* w, unsigned short address, unsigned short size, bool read_from_register);
 
 #endif
