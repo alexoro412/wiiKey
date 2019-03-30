@@ -5,10 +5,19 @@
 #include <hidapi.h>
 #include <stdbool.h>
 #include <string.h>
+#include <assert.h>
 
 // TODO is this better than using a macro?
 extern unsigned short wiimote_vendor_id;
 extern unsigned short wiimote_product_id;
+
+enum wiimote_memory_type {
+  MEMORY_SPEAKER = 0xa2,
+  MEMORY_EXTENSION = 0xa4,
+  MEMORY_WII_MOTION_PLUS = 0xa6,
+  MEMORY_IR_CAMERA = 0xb0,
+  MEMORY_EEPROM = 0x00
+};
 
 typedef struct {
   union {
@@ -50,10 +59,13 @@ typedef struct {
   hid_device* handle;
   unsigned char reporting_mode;
 
+  bool extension_connected;
+
   bool reading_memory;
+  enum wiimote_memory_type memory_type;
   unsigned short memory_address;
   unsigned short memory_end_address;
-  unsigned char* memory;
+  unsigned char* eeprom;
 } wiimote;
 
 // Corresponds to the 0x20 report
@@ -90,7 +102,8 @@ enum leds {
   LED_4 = 0x80
 };
 
-int wiimote_set_leds(wiimote* w, unsigned char led_state);
+
+int wiimote_set_leds(wiimote* w, enum leds led_state);
 
 void wiimote_parse_core_buttons(wiimote_core_buttons* buttons, unsigned char* buffer);
 
@@ -98,6 +111,12 @@ int wiimote_set_reporting_mode(wiimote* w, unsigned char reporting_mode, bool co
 
 int wiimote_request_status_report(wiimote* w);
 
-int wiimote_request_memory(wiimote* w, unsigned short address, unsigned short size, bool read_from_register);
+// Reading and writing to memory on the wiimote
+
+int wiimote_request_memory(wiimote* w, unsigned short address, unsigned short size, enum wiimote_memory_type memory_type);
+
+void wiimote_write_memory(wiimote* w, unsigned short address, unsigned short size, enum wiimote_memory_type memory_type, unsigned char* bytes);
+
+int wiimote_write_memory_raw(wiimote* w, unsigned short address, unsigned char size, enum wiimote_memory_type memory_type, unsigned char* bytes);
 
 #endif

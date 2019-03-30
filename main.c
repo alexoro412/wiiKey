@@ -78,23 +78,32 @@ int main(void){
           }
 
           if(button_buffer.one && !w->buttons.one){
-            wiimote_request_memory(w, 0, 0x1700, false);
+            wiimote_request_memory(w, 0, 0x1700, MEMORY_EEPROM);
           }
 
           if(button_buffer.two && !w->buttons.two){
             printf("Writing memory to data.bin\n");
             FILE* f = fopen("data.bin", "w");
-            fwrite(w->memory, sizeof(unsigned char), 0x1700, f);
+            fwrite(w->eeprom, sizeof(unsigned char), 0x1700, f);
             fclose(f);
           }
 
           if(button_buffer.home && !w->buttons.home){
-            wiimote_request_status_report(w);
+            printf("Writing data.bin back to wiimote\n");
+            FILE* f = fopen("data.bin", "r");
+            unsigned char* data = malloc(sizeof(unsigned char) * 0x1700);
+            fread(data, sizeof(unsigned char), 0x1700, f);
+            //unsigned char bytes[] = "Hello, world!";
+            wiimote_write_memory(w, 0, 0x1700, MEMORY_EEPROM, data);
+            free(data);
+            fclose(f);
+            printf("Done writing memory\n");
+/*            wiimote_request_status_report(w);
             if(w->reporting_mode == 0x31){
               wiimote_set_reporting_mode(w, 0x30, false);
             } else if(w->reporting_mode == 0x30){
               wiimote_set_reporting_mode(w, 0x31, false);
-            }
+            }*/
           }
 
           w->buttons = button_buffer;
@@ -127,7 +136,7 @@ int main(void){
             printf("Reading memory at address 0x%02x%02x\n", buffer[4], buffer[5]);
             memory_size = (buffer[3] >> 4) + 1;
             for(int i = 0; i < memory_size; i++){
-              w->memory[w->memory_address] = buffer[6+i];
+              w->eeprom[w->memory_address] = buffer[6+i];
               w->memory_address++;
             }
             if(w->memory_address >= w->memory_end_address){
@@ -142,8 +151,13 @@ int main(void){
             printf("\n");*/
             break;
           case 0x22: // acknowledge output report, maybe report error...
+            // This is the acknowledgement that is sometimes received
+            // when memory is written. Ignore it
+            if(buffer[4] == 0x04 && buffer[3] == 0x16) break;
+
+            // Possible error
             if(buffer[4]){
-              printf("Possible error with report number 0x%02x\n", buffer[3]);
+              printf("Possible error [0x%02x] with report number 0x%02x\n", buffer[4], buffer[3]);
             }
             break;
           case 0x30: // Core buttons
