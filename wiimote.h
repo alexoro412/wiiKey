@@ -8,8 +8,8 @@
 #include <assert.h>
 
 // TODO is this better than using a macro?
-extern unsigned short wiimote_vendor_id;
-extern unsigned short wiimote_product_id;
+extern uint16_t wiimote_vendor_id;
+extern uint16_t wiimote_product_id;
 
 enum wiimote_memory_type {
   MEMORY_SPEAKER = 0xa2,
@@ -22,12 +22,12 @@ enum wiimote_memory_type {
 typedef struct {
   union {
     // The core buttons data as a single short
-    unsigned short buttons;
+    uint16_t buttons;
 
     // The two bytes that represent the core buttons data
     struct {
-      unsigned char buttons_first;
-      unsigned char buttons_second;
+      uint8_t buttons_first;
+      uint8_t buttons_second;
     };
 
     // The individual buttons
@@ -57,15 +57,15 @@ typedef struct {
   wiimote_core_buttons buttons;
   bool rumble;
   hid_device* handle;
-  unsigned char reporting_mode;
+  uint8_t reporting_mode;
 
   bool extension_connected;
 
   bool reading_memory;
   enum wiimote_memory_type memory_type;
-  unsigned short memory_address;
-  unsigned short memory_end_address;
-  unsigned char* eeprom;
+  uint16_t memory_address;
+  uint16_t memory_end_address;
+  uint8_t* eeprom;
 } wiimote;
 
 // Corresponds to the 0x20 report
@@ -81,18 +81,18 @@ typedef struct {
       bool led3 : 1;
       bool led4 : 1;
     };
-    unsigned char lf_byte; 
+    uint8_t lf_byte; 
   };
-  unsigned char battery_level;
+  uint8_t battery_level;
 } wiimote_status_report;
 
 wiimote* wiimote_new(const wchar_t* serial);
 
 void wiimote_free(wiimote* w);
 
-int wiimote_read(wiimote* w, unsigned char* buffer, int len);
+int wiimote_read(wiimote* w, uint8_t* buffer, int len);
 
-int wiimote_write(wiimote* w, unsigned char* buffer, int len);
+int wiimote_write(wiimote* w, uint8_t* buffer, int len);
 
 enum leds {
   LED_OFF = 0x00,
@@ -105,18 +105,24 @@ enum leds {
 
 int wiimote_set_leds(wiimote* w, enum leds led_state);
 
-void wiimote_parse_core_buttons(wiimote_core_buttons* buttons, unsigned char* buffer);
+void wiimote_parse_core_buttons(wiimote_core_buttons* buttons, uint8_t* buffer);
 
-int wiimote_set_reporting_mode(wiimote* w, unsigned char reporting_mode, bool continuous);
+int wiimote_set_reporting_mode(wiimote* w, uint8_t reporting_mode, bool continuous);
 
 int wiimote_request_status_report(wiimote* w);
 
 // Reading and writing to memory on the wiimote
 
-int wiimote_request_memory(wiimote* w, unsigned short address, unsigned short size, enum wiimote_memory_type memory_type);
+int wiimote_request_memory(wiimote* w, uint16_t address, uint16_t size, enum wiimote_memory_type memory_type);
 
-void wiimote_write_memory(wiimote* w, unsigned short address, unsigned short size, enum wiimote_memory_type memory_type, unsigned char* bytes);
+void wiimote_write_memory(wiimote* w, uint16_t address, uint16_t size, enum wiimote_memory_type memory_type, uint8_t* bytes);
 
-int wiimote_write_memory_raw(wiimote* w, unsigned short address, unsigned char size, enum wiimote_memory_type memory_type, unsigned char* bytes);
+int wiimote_write_memory_raw(wiimote* w, uint16_t address, uint8_t size, enum wiimote_memory_type memory_type, uint8_t* bytes);
+
+void wiimote_initialize_speaker(wiimote* w);
+
+void wiimote_shutdown_speaker(wiimote* w);
+
+void wiimote_speaker_data(wiimote* w, uint8_t* buffer, int size);
 
 #endif

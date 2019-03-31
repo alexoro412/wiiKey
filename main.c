@@ -44,16 +44,23 @@ int main(void){
       printf("Fatal: Couldn't open wiimote\n");
     } else {  
     
-      unsigned char buffer[BUFFER_LENGTH];
+      uint8_t buffer[BUFFER_LENGTH];
+
+      w->rumble = false;
+
+      wiimote_set_reporting_mode(w, 0x30, false);
+
+      wiimote_set_leds(w, LED_1 | LED_2);
 
       int bytes_read = wiimote_read(w, buffer, BUFFER_LENGTH);
       
-      w->rumble = false;
-      wiimote_set_leds(w, LED_1 | LED_2);
+      
+      
      
       wiimote_core_buttons button_buffer;
 
-      wiimote_request_status_report(w);
+      
+      //wiimote_request_status_report(w);
 
       while(bytes_read > 0){
         if(buffer[0] != 0x3d){
@@ -69,10 +76,33 @@ int main(void){
           KEYBIND(right, 'd');
           KEYBIND(up, 'w');
           KEYBIND(down, 's');
-          KEYBIND(A, 'q');
-          KEYBIND(plus, 'r');
-          KEYBIND(minus, 'e');
+          // KEYBIND(A, 'q');
+          // KEYBIND(plus, 'r');
+          // KEYBIND(minus, 'e');
    
+          if(button_buffer.minus && !w->buttons.minus){
+            wiimote_shutdown_speaker(w);
+            printf("Shutdown speaker\n");
+          }
+
+          if(button_buffer.A && !w->buttons.A){
+            uint8_t data[20];
+            printf("Sending speaker data\n");
+            for(int i = 0; i < 100; i++){
+              for(int j = 0; j < 20; j++){
+                data[j] = (uint8_t)(random() % 255);
+              }
+              wiimote_speaker_data(w, data, 20);
+              usleep(15*1000);
+            }
+            printf("Done sending speaker data\n");
+          }
+
+          if(button_buffer.plus && !w->buttons.plus){
+            wiimote_initialize_speaker(w);
+            printf("Speaker initialized\n");
+          }
+
           if(button_buffer.B != w->buttons.B){
             keyboard_key_set(kVK_Space, button_buffer.B);
           }
@@ -84,16 +114,16 @@ int main(void){
           if(button_buffer.two && !w->buttons.two){
             printf("Writing memory to data.bin\n");
             FILE* f = fopen("data.bin", "w");
-            fwrite(w->eeprom, sizeof(unsigned char), 0x1700, f);
+            fwrite(w->eeprom, sizeof(uint8_t), 0x1700, f);
             fclose(f);
           }
 
           if(button_buffer.home && !w->buttons.home){
             printf("Writing data.bin back to wiimote\n");
             FILE* f = fopen("data.bin", "r");
-            unsigned char* data = malloc(sizeof(unsigned char) * 0x1700);
-            fread(data, sizeof(unsigned char), 0x1700, f);
-            //unsigned char bytes[] = "Hello, world!";
+            uint8_t* data = malloc(sizeof(uint8_t) * 0x1700);
+            fread(data, sizeof(uint8_t), 0x1700, f);
+            //uint8_t bytes[] = "Hello, world!";
             wiimote_write_memory(w, 0, 0x1700, MEMORY_EEPROM, data);
             free(data);
             fclose(f);
@@ -115,7 +145,7 @@ int main(void){
         short acc_x, acc_y, acc_z;
         acc_x = acc_y = acc_z = 0;
 
-        unsigned char memory_size;
+        uint8_t memory_size;
 
         switch(buffer[0]){
           case 0x20: // CB + status report
